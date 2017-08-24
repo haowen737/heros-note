@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>双向绑定实现-vue</title>
+</head>
+<body>
+	<div id="app">
+		<input type="text" v-model="word">{{word}}
+	</div>	
+</body>
+<script>
+	// vue构造函数
+	class Vue {
+		constructor (options) {
+			this.data = options.data
+			let id = options.el
+			observe(this.data, this)
+			let dom = nodeToFragment(document.querySelector(id), this)
+			document.querySelector(id).appendChild(dom)
+		}
+	}
+
+	// 编译html的部分
+
+	//首先创建一个文档片段， 将劫持的dom片段进行重新编译后并插入到文档片段中
+	function nodeToFragment (node, vm) {
+		let docfrag = document.createDocumentFragment()
+		let child
+
+		while (child = node.firstChild) {
+			compile(child, vm)
+			docfrag.appendChild(child) // 将子节点劫持到文档片段中
+		}
+		return docfrag
+	}
+
+	// 所谓的编译的流程就是读取了不同节点类型中的属性
+	// 在这里只要实现v-model及{{}},
+	// 若是元素节点，生成一个watcher，加一个监听，监听input输入值同时改变vm上的对应属性值
+	// 若是文本节点，生成一个watcher，当vm的值发生变化时改变文本节点的值
+	function compile (node, vm) {
+		let reg = /\{\{(.*)\}\}/
+		if (node.nodeType === 1) {
+			let attr = [].slice.call(node.attributes)
+			attr.map((i) => {
+				if (i.nodeName === 'v-model') {
+					let name = i.nodeValue
+					node.addEventListener('input', function (e) {
+						vm[name] = e.target.value
+					})
+					node.removeAttribute('v-model')
+					new Watcher(vm, node, name, 'input')
+				}
+			})
+		}
+		if (node.nodeType === 3) {
+			if (reg.test(node.nodeValue)) {
+				let name = RegExp.$1
+				name = name.trim()
+				new Watcher(vm, node, name, 'text')
+			}
+		}
+	}
+
+	// 编译html的时候，为每个与data关联的节点生成一个Wathcer
+	// watcher的update方法会更新dom节点的value值
+	// 在初始化的时候以及发布者发布的时候会进行调用
+	class Watcher {
+		constructor (vm, node, name, nodeType) {
+			Dep.target = this
+			this.name = name
+			this.node = node
+			this.vm = vm
+			this.nodeType = nodeType
+			this.update()
+			Dep.target = null
+		}
+		update () {
+			switch (this.nodeType) {
+				case 'text':
+					this.node.nodeValue = this.vm[this.name]
+				case 'input':
+					this.node.value = this.vm[this.name]
+			}
+		}
+	}
+
+	// 监听数据
+	function observe (obj, vm) {
+		Object.keys(obj).forEach((key) => {
+			defineReactive(vm, key, obj[key])
+		})
+	}
+
+	function defineReactive (obj, key, val) {
+		let dep = new Dep()
+		Object.defineProperty(obj, key, {
+			get: function () {
+				if (Dep.target) dep.addSub(Dep.target)
+				return val
+			},
+			set: function (newVal) {
+				if (newVal === val) return
+				val = newVal
+				dep.notify()
+			}
+		})
+	}
+
+	class Dep {
+		constructor () {
+			this.subs = []
+		}
+		addSub (sub) {
+			this.subs.push(sub)
+		}
+		notify () {
+			this.subs.forEach(function (sub) {
+				sub.update()
+			})
+		}
+	}
+
+	let vm = new Vue({
+		el: '#app',
+		data: {
+			word: 'hello'
+		}
+	})
+
+	// 每当new了一个Vue，主要做了两件事，第一个是监听数据（observe），第二个是编译HTML（nodetofragment）	
+</script>
+</html>
