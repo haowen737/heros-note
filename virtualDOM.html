@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+</head>
+<body>
+
+</body>
+<script type="text/javascript">
+
+  let ul = el('ul', { id: 'list' }, [
+    el('li', { class: 'item' }, ['Item 1'])
+  ])
+
+  function Element (tagName, props, children) {
+    this.tagName = tagName
+    this.props = props
+    this.children = children
+  }
+
+  function el (tagName, props, children) {
+    return new Element(tagName, props, children)
+  }
+
+  Element.prototype.render = function () {
+    let el = document.createElement(this.tagName)
+    let props = this.props
+
+    for (var propName in props) {
+      let propValue = props[propName]
+      el.setAttribute(propName, propValue)
+    }
+
+    let children = this.children || []
+    children.forEach(function (child) {
+      let childEl = (child instanceof Element)
+        ? child.render()
+        : document.createTextNode(child)
+      el.appendChild(childEl)
+    })
+
+    return  el
+  }
+
+  let ulRoot = ul.render()
+  document.body.appendChild(ulRoot)
+
+  const noo = document.getElementById('list')
+  for (let key in noo) {
+    console.log(key)
+  }
+
+</script>
+</html>
